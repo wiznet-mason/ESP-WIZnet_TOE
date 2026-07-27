@@ -1,0 +1,5 @@
+## IDF Component Manager Manifest File
+## W5500 SPI Ethernet driver. In ESP-IDF 6.0 the SPI Ethernet chip drivers were moved
+## out of the core `esp_eth` component into the Component Registry.
+dependencies:
+  espressif/w5500: "^1.0.1"

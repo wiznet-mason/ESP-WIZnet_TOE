@@ -1,0 +1,10 @@
+# ESP-IDF build output
+/build/
+
+# Managed components are fetched by the component manager
+/managed_components/
+/main/managed_components/
+dependencies.lock
+
+# Editor / OS
+.DS_Store

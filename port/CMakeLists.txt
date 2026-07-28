@@ -37,7 +37,7 @@ set(PRIV_INC "ioLibrary_Driver/inc")
 
 if(WIZNET_TOE)
     list(APPEND SRCS
-        "ioLibrary_Driver/src/net_backend_toe.c"
+        "backend/src/net_backend_toe.c"
         "ioLibrary_Driver/src/wizchip_spi_esp.c"
         "ioLibrary_Driver/src/wiznet_toe.c"
         "ioLibrary_Driver/src/wiztoe_wrap.c")

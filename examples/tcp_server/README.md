@@ -35,6 +35,18 @@ see the top-level README):
 The two listen ports differ on purpose: in `WIZNET_TOE=0` both interfaces share one LwIP stack, so
 identical ports would clash on `bind()`.
 
+## Source files
+
+| File | Role |
+|---|---|
+| [`src/tcp_server_main.c`](src/tcp_server_main.c) | `app_main` — packs `net_config.h` into `wiznet_cfg_t`, brings up Ethernet + Wi-Fi, starts the server on both via `tcp_server_start()` |
+| [`src/tcp_server.c`](src/tcp_server.c) | backend-neutral TCP server engine (banner + echo) + `tcp_server_start()` task launcher |
+| [`inc/tcp_server.h`](inc/tcp_server.h) | server engine API |
+| [`inc/net_config.h`](inc/net_config.h) | this example's board / Wi-Fi / IP + app config |
+
+Everything else (network bring-up, socket vtables, the W5500 drivers) lives in the shared
+[`port/`](../../port/) component — see the [top-level README](../../README.md).
+
 ## Build & flash
 
 ```bash

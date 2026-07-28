@@ -1068,40 +1068,6 @@ CONFIG_COMPILER_CXX_GLIBCXX_CONSTEXPR_NO_CHANGE=y
 #
 
 #
-# Legacy Driver Configurations
-#
-
-#
-# Legacy TWAI Driver Configurations
-#
-# default:
-# CONFIG_TWAI_ISR_IN_IRAM_LEGACY is not set
-# default:
-# CONFIG_TWAI_SUPPRESS_DEPRECATE_WARN is not set
-# default:
-# CONFIG_TWAI_SKIP_LEGACY_CONFLICT_CHECK is not set
-# end of Legacy TWAI Driver Configurations
-
-#
-# Legacy I2C Driver Configurations
-#
-# default:
-# CONFIG_I2C_SUPPRESS_DEPRECATE_WARN is not set
-# default:
-# CONFIG_I2C_SKIP_LEGACY_CONFLICT_CHECK is not set
-# end of Legacy I2C Driver Configurations
-
-#
-# Legacy Touch Sensor Driver Configurations
-#
-# default:
-# CONFIG_TOUCH_SUPPRESS_DEPRECATE_WARN is not set
-# default:
-# CONFIG_TOUCH_SKIP_LEGACY_CONFLICT_CHECK is not set
-# end of Legacy Touch Sensor Driver Configurations
-# end of Legacy Driver Configurations
-
-#
 # eFuse Bit Manager
 #
 # default:
@@ -1185,19 +1151,6 @@ CONFIG_SPI_SLAVE_ISR_IN_IRAM=y
 # default:
 CONFIG_USJ_ENABLE_USB_SERIAL_JTAG=y
 # end of ESP-Driver:USB Serial/JTAG Configuration
-
-#
-# Ethernet
-#
-# default:
-CONFIG_ETH_ENABLED=y
-# default:
-CONFIG_ETH_USE_SPI_ETHERNET=y
-# default:
-# CONFIG_ETH_USE_OPENETH is not set
-# default:
-# CONFIG_ETH_TRANSMIT_MUTEX is not set
-# end of Ethernet
 
 #
 # Event Loop Library

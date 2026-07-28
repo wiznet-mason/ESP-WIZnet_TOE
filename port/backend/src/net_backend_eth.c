@@ -4,7 +4,7 @@
  * WIZNET_TOE=0 implementation of the backend-neutral harness (net_backend.h):
  * the W5500 is a SPI Ethernet MAC via ESP-IDF esp_eth (MACRAW), and the LwIP
  * software stack runs on the ESP32-S3. This is the project's original bring-up,
- * moved verbatim out of W5500_loopback.c so the example stays backend-agnostic.
+ * moved verbatim out of loopback_main.c so the example stays backend-agnostic.
  */
 #include <stdbool.h>
 #include <string.h>

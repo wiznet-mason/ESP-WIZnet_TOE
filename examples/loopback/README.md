@@ -40,6 +40,18 @@ see the top-level README):
 The two listen ports differ on purpose: in `WIZNET_TOE=0` both interfaces share one LwIP stack, so
 identical ports would clash on `bind()`.
 
+## Source files
+
+| File | Role |
+|---|---|
+| [`src/loopback_main.c`](src/loopback_main.c) | `app_main` — packs `net_config.h` into `wiznet_cfg_t`, brings up Ethernet + Wi-Fi, starts the echo engine on both via `loopback_start()` |
+| [`src/loopback.c`](src/loopback.c) | backend-neutral echo engine + `loopback_start()` task launcher; holds `LOOPBACK_MODE` |
+| [`inc/loopback.h`](inc/loopback.h) | echo engine API |
+| [`inc/net_config.h`](inc/net_config.h) | this example's board / Wi-Fi / IP + app config |
+
+Everything else (network bring-up, socket vtables, the W5500 drivers) lives in the shared
+[`port/`](../../port/) component — see the [top-level README](../../README.md).
+
 ## Build & flash
 
 ```bash

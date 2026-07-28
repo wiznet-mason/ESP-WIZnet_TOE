@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: CC0-1.0
  *
  * Backend-neutral loopback (echo) engine. Same logic as the original inline
- * routines in W5500_loopback.c, but the BSD socket calls go through a vtable
+ * routines in loopback_main.c, but the BSD socket calls go through a vtable
  * (net_sock_ops_t) so the Ethernet (W5500) and Wi-Fi paths reuse one copy.
  */
 #include <stdbool.h>

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: CC0-1.0
  *
- * Board + network configuration for this example. app_main (W5500_loopback.c)
+ * Board + network configuration for this example. app_main (loopback_main.c)
  * packs these into a wiznet_cfg_t and passes it to the port layer's
  * wiznet_net_init(); the port component hardcodes none of it. Loopback-app
  * settings (ports, echo buffer, TCP-client target) are below.
@@ -33,7 +33,7 @@
 #define WIFI_SSID             "Mason_RT-AX57"//"your-ssid"
 #define WIFI_PASS             "wiznet1206!"//"your-password"
 
-/* ---- loopback application config (shared by W5500_loopback.c + wifi_loopback.c) ---- */
+/* ---- loopback application config (used by loopback_main.c + loopback.c) ---- */
 #define LOOPBACK_PORT         5000              /* Ethernet (W5500) echo port */
 #define WIFI_LOOPBACK_PORT    5001              /* Wi-Fi echo port — kept != Ethernet so the
                                                    shared LwIP stack in TOE=0 has no bind clash */

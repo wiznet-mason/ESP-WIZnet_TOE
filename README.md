@@ -221,8 +221,9 @@ port/                          shared component: network bring-up for all exampl
 │     ├─ wifi_backend.c        Wi-Fi STA bring-up (both backends)
 │     ├─ net_sock_ops.c        net_eth_ops (plain lwip_* → W5500 via --wrap in TOE=1)
 │     ├─ net_wifi_ops.c        net_wifi_ops (__real_lwip_* wrap-bypass; the only #if WIZNET_TOE)
-│     └─ net_backend_eth.c     WIZNET_TOE=0 bring-up (esp_eth W5500 MAC + software LwIP)
-└─ ioLibrary_Driver/           all W5500 chip driver-port code (private headers)
+│     ├─ net_backend_eth.c     WIZNET_TOE=0 bring-up (esp_eth W5500 MAC + software LwIP)
+│     └─ net_backend_toe.c     WIZNET_TOE=1 bring-up (shadow esp_netif + static IP + chip config)
+└─ ioLibrary_Driver/           pure W5500 chip driver-port code (private headers)
    ├─ LICENSE.esp_eth_w5500    Apache-2.0 for the vendored esp_eth driver
    ├─ inc/  esp_eth_mac_w5500.h · esp_eth_phy_w5500.h · w5500.h   (TOE=0, vendored esp_eth driver)
    │        wizchip_spi_esp.h · wiznet_toe.h · toe_port.h         (TOE=1, ioLibrary glue)
@@ -231,7 +232,6 @@ port/                          shared component: network bring-up for all exampl
       ├─ esp_eth_phy_w5500.c   TOE=0: vendored W5500 esp_eth PHY
       ├─ wizchip_spi_esp.c     TOE=1: ESP32 SPI/GPIO ↔ ioLibrary callbacks (reg_wizchip_*_cbfunc)
       ├─ wiznet_toe.c          TOE=1: hardware-socket layer (ported from WIZnet-PICO-LWIP-TOE-C)
-      ├─ net_backend_toe.c     TOE=1: bring-up (shadow esp_netif + static IP + chip config)
       └─ wiztoe_wrap.c         TOE=1: __wrap_lwip_* glue (routes BSD sockets to the W5500)
 
 examples/                      each subfolder is a selectable example component (-DEXAMPLE=<name>)

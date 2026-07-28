@@ -1,11 +1,10 @@
-# ESP32-S3 + W5500 Loopback (Ethernet **TOE** or **esp_eth**) with concurrent Wi-Fi
+# ESP32-S3 + W5500 examples (Ethernet **TOE** or **esp_eth**) with concurrent Wi-Fi
 
-A loopback (echo) example for the **WIZnet W5500** on an **ESP32-S3**, built around a
+A set of example apps for the **WIZnet W5500** on an **ESP32-S3**, built around a
 "**one source, two backends**" design: the *same* application code runs on either of two
-interchangeable networking stacks, selected at build time by a single CMake switch.
-
-On top of that, the demo brings up **Wi-Fi STA at the same time** and runs a *second*
-echo server on it — so you can exercise the W5500 and Wi-Fi loopbacks **concurrently**.
+interchangeable networking stacks, selected at build time by a single CMake switch. On top of
+that, every example brings up **Wi-Fi STA at the same time** and runs a *second* server on it —
+so you can exercise the W5500 and Wi-Fi paths **concurrently**.
 
 | `WIZNET_TOE` | Backend | Where TCP/IP runs |
 |:---:|---|---|
@@ -16,6 +15,19 @@ echo server on it — so you can exercise the W5500 and Wi-Fi loopbacks **concur
 > hardware; the ESP32-S3 only talks to hardware sockets over SPI. In `esp_eth` mode the
 > W5500 is used as a plain SPI MAC and the ESP32-S3 runs the software LwIP stack.
 
+## Examples
+
+Each example is selectable at build time with `-DEXAMPLE=<name>` and has its own README with
+wiring-independent details (ports, test steps, expected output):
+
+| Example | What it does | README |
+|---|---|---|
+| **`loopback`** (default) | TCP/UDP **echo** (server / client / UDP modes) on Ethernet + Wi-Fi | [examples/loopback/README.md](examples/loopback/README.md) |
+| **`tcp_server`** | **TCP server** that greets each client with a banner, then echoes | [examples/tcp_server/README.md](examples/tcp_server/README.md) |
+
+This top-level README covers everything common to all examples: hardware, pinout, environment,
+and how to build. For what a given example *does* and how to test it, open its README above.
+
 ---
 
 ## Table of contents
@@ -25,8 +37,9 @@ echo server on it — so you can exercise the W5500 and Wi-Fi loopbacks **concur
 - [Development environment](#development-environment)
 - [Configuration](#configuration)
 - [Build / Flash / Monitor](#build--flash--monitor)
-- [Testing the loopback](#testing-the-loopback)
-- [Expected serial output](#expected-serial-output)
+  - [Choosing the backend (`WIZNET_TOE`)](#choosing-the-backend-wiznet_toe)
+  - [Choosing the example (`EXAMPLE`)](#choosing-the-example-example)
+  - [Build every example at once](#build-every-example-at-once)
 - [Project layout](#project-layout)
 - [How it works](#how-it-works)
 - [Troubleshooting](#troubleshooting)
@@ -37,11 +50,11 @@ echo server on it — so you can exercise the W5500 and Wi-Fi loopbacks **concur
 ## Features
 
 - **Two networking backends from one app source**, chosen with `-DWIZNET_TOE=1|0`.
-- **Concurrent Ethernet + Wi-Fi loopback**, each as its own sibling task.
-- **Three echo modes** (compile-time `LOOPBACK_MODE`): TCP server, TCP client, UDP —
-  applied to *both* interfaces.
+- **Concurrent Ethernet (W5500) + Wi-Fi STA**, each running the example as its own sibling task.
 - W5500 driven over SPI (hardware TCP/IP via `ioLibrary`, or SPI-MAC via `esp_eth`).
 - Static IP for Ethernet; DHCP for Wi-Fi STA.
+- **Self-contained**: no `managed_components/` download — the esp_eth W5500 driver is vendored in-tree.
+- App code has **zero `#if WIZNET_TOE`**: the backend/`--wrap` details live entirely in the `port/` component.
 
 ---
 
@@ -54,8 +67,8 @@ echo server on it — so you can exercise the W5500 and Wi-Fi loopbacks **concur
 
 ### W5500 ↔ ESP32-S3 pinout
 
-Defined in [`main/net_config.h`](main/net_config.h). Change the `PIN_ETH_*` macros to match
-your wiring.
+Defined in each example's `inc/net_config.h` (same board defaults across examples). Change the
+`PIN_ETH_*` macros to match your wiring.
 
 | W5500 signal | ESP32-S3 GPIO | Notes |
 |---|:---:|---|
@@ -78,14 +91,14 @@ your wiring.
 
 | Item | Version / value |
 |---|---|
-| **ESP-IDF** | **v6.0.2** (v6.0.x). The W5500 SPI driver was moved out of the `esp_eth` core into the Component Registry in IDF 6.0, so it is pulled in as a managed component — see [`main/idf_component.yml`](main/idf_component.yml) (`espressif/w5500: "^1.0.1"`). |
+| **ESP-IDF** | **v6.0.2** (v6.0.x). In IDF 6.0 the W5500 SPI driver was moved out of the `esp_eth` core into the Component Registry (`espressif/w5500`). This project **vendors** that driver in-tree under [`port/ioLibrary_Driver/`](port/ioLibrary_Driver/) so it is fully self-contained (no `managed_components/` download); Espressif's Apache-2.0 license is kept alongside it. |
 | **Target** | `esp32s3` (`CONFIG_IDF_TARGET="esp32s3"`) |
 | **Toolchain** | `xtensa-esp32s3-elf` (installed by ESP-IDF) |
 | **FreeRTOS tick** | 1000 Hz (`CONFIG_FREERTOS_HZ=1000`) — TOE polling uses 1 ms `vTaskDelay` |
 | **Host OS** | Windows / Linux / macOS. Examples below use PowerShell paths; adapt as needed. |
 | **Editor (optional)** | VS Code + the Espressif **ESP-IDF** extension |
 
-Set up the ESP-IDF environment before building:
+Set up the ESP-IDF environment before building (or use the VS Code extension's *ESP-IDF Terminal*):
 
 ```bash
 # Linux/macOS
@@ -106,16 +119,18 @@ idf.py set-target esp32s3
 
 ## Configuration
 
-All wiring, IP, Wi-Fi and loopback settings live in [`main/net_config.h`](main/net_config.h).
+Every example owns its own `inc/net_config.h`. The **board / network** settings there are the
+same across examples; the **app-specific** settings (listen ports, echo mode, …) are documented
+in each example's README.
 
-**1. Wi-Fi credentials — required for the Wi-Fi loopback:**
+**Wi-Fi credentials** — required for the Wi-Fi side of every example:
 
 ```c
 #define WIFI_SSID   "your-ssid"
 #define WIFI_PASS   "your-password"
 ```
 
-**2. Ethernet static IP** (the W5500 side):
+**Ethernet static IP** (the W5500 side):
 
 ```c
 #define STATIC_IP        "192.168.11.2"
@@ -123,147 +138,108 @@ All wiring, IP, Wi-Fi and loopback settings live in [`main/net_config.h`](main/n
 #define STATIC_GATEWAY   "192.168.11.1"
 ```
 
-**3. Ports and TCP-client target:**
-
-```c
-#define LOOPBACK_PORT         5000              /* Ethernet (W5500) echo port      */
-#define WIFI_LOOPBACK_PORT    5001              /* Wi-Fi echo port (kept != Eth)   */
-#define LOOPBACK_TARGET_IP    "192.168.11.100"  /* TCP-client mode destination     */
-#define LOOPBACK_TARGET_PORT  5000
-```
-
-> The Wi-Fi port differs from the Ethernet port on purpose: in `WIZNET_TOE=0` both
-> interfaces share **one** LwIP stack, so identical ports would clash on `bind()`.
-
-**4. Echo mode** — `LOOPBACK_MODE` in [`main/loopback.c`](main/loopback.c):
-
-```c
-#define LOOPBACK_MODE   LOOPBACK_TCP_SERVER   /* 0 = TCP server (default) */
-//      LOOPBACK_MODE   LOOPBACK_TCP_CLIENT   /* 1 = TCP client           */
-//      LOOPBACK_MODE   LOOPBACK_UDP          /* 2 = UDP echo             */
-```
-
-The selected mode applies to **both** the Ethernet and Wi-Fi loopbacks. Edit the `#define`
-(simplest), or override at build time — see below.
+Each example uses **two listen ports** — one for Ethernet, one for Wi-Fi — deliberately different,
+because in `WIZNET_TOE=0` both interfaces share **one** LwIP stack and identical ports would clash
+on `bind()`. The exact numbers are in the example's README.
 
 ---
 
 ## Build / Flash / Monitor
 
-```bash
-# TOE backend (W5500 hardware TCP/IP) — default
-idf.py -DWIZNET_TOE=1 build
-
-# esp_eth backend (software LwIP over the W5500 SPI MAC)
-idf.py -DWIZNET_TOE=0 build
-
-# flash + open the serial monitor (exit monitor with Ctrl+])
-idf.py -p PORT flash monitor
-```
-
-- Switching `WIZNET_TOE` does **not** require `idf.py fullclean`.
-- To override the echo mode from the command line instead of editing the `#define`:
-  ```bash
-  idf.py fullclean
-  idf.py -DWIZNET_TOE=1 -DCMAKE_C_FLAGS="-DLOOPBACK_MODE=1" build
-  ```
-  `fullclean` first, because ESP-IDF *appends* `CMAKE_C_FLAGS` across reconfigures (otherwise
-  you get a `LOOPBACK_MODE redefined` `-Werror`).
-
----
-
-## Testing the loopback
-
-The PC and the W5500 must share a subnet. For the default Ethernet IP `192.168.11.2`,
-give your PC a static address on `192.168.11.x` (e.g. **192.168.11.100**), netmask
-`255.255.255.0`. The **Wi-Fi** interface gets its IP from your AP via DHCP — read it from
-the serial monitor (`wifi: got IP …`).
-
-`ncat` (from **nmap**) is used below; `nc`/`socat`/PuTTY work too.
-
-### Default mode — TCP server (`LOOPBACK_MODE = 0`)
-
-The ESP listens; you connect and type, and every line is echoed back.
+### Choosing the backend (`WIZNET_TOE`)
 
 ```bash
-# Ethernet (W5500) — port 5000
-ncat 192.168.11.2 5000
+idf.py -DWIZNET_TOE=1 build      # TOE — W5500 hardware TCP/IP (default)
+idf.py -DWIZNET_TOE=0 build      # esp_eth — software LwIP over the W5500 SPI MAC
 
-# Wi-Fi — port 5001, IP from the serial log
-ncat <wifi-ip-from-log> 5001
+idf.py -p PORT flash monitor     # flash + serial monitor (exit: Ctrl+])
 ```
-Type any text and press Enter — it comes straight back. Open **both** at once to see the
-two interfaces echoing concurrently.
 
-### TCP client mode (`LOOPBACK_MODE = 1`)
+Switching `WIZNET_TOE` does **not** require `idf.py fullclean`.
 
-The ESP connects *out* to `LOOPBACK_TARGET_IP:LOOPBACK_TARGET_PORT` and echoes whatever the
-peer sends. Run a listener on the PC at that address first:
+### Choosing the example (`EXAMPLE`)
+
+Pick which example is built with `-DEXAMPLE=<name>` (default `loopback`). ESP32 flashes one app at
+a time, so each build produces a single image:
 
 ```bash
-ncat -l 0.0.0.0 5000     # then type; the ESP echoes it back
+idf.py -DEXAMPLE=loopback   build
+idf.py -DEXAMPLE=tcp_server build
 ```
 
-### UDP mode (`LOOPBACK_MODE = 2`)
+`EXAMPLE` is a CMake **cache** variable, so the value sticks in the build directory. Changing it
+alters the set of built components, so **`fullclean` when switching example**:
 
 ```bash
-ncat -u 192.168.11.2 5000          # Ethernet
-ncat -u <wifi-ip-from-log> 5001    # Wi-Fi
+idf.py fullclean
+idf.py -DEXAMPLE=tcp_server -DWIZNET_TOE=1 build
 ```
 
-### Quick throughput check (optional)
+> **VS Code ESP-IDF extension:** the *Build* button runs `idf.py build` and follows whatever
+> `EXAMPLE`/`WIZNET_TOE` are cached in `build/` (defaults on first build). To pick a different
+> example, run the `-DEXAMPLE=…` command once in the *ESP-IDF Terminal* (`fullclean` first); the
+> Build / Flash / Monitor buttons then all target it.
+
+### Build every example at once
+
+`build_all.ps1` / `build_all.sh` build each example × backend into its own `builds/<name>_toe<n>/`
+directory (so one command produces every binary — one `app_main` per image). Run it from the
+**ESP-IDF terminal** or after sourcing `export.ps1`/`export.sh`; the script checks that `idf.py` is
+on PATH and stops with a hint if the environment isn't active.
 
 ```bash
-# pipe 1 MB and time the echo round-trip (TCP server mode)
-head -c 1000000 /dev/urandom | ncat 192.168.11.2 5000 | wc -c
+./build_all.ps1        # Windows PowerShell   (or:  ./build_all.sh  on Linux/macOS)
+./build_all.ps1 -Toe 1                 # one backend only
+./build_all.ps1 -Examples loopback     # one example only
 ```
 
----
-
-## Expected serial output
-
-Approximate log at boot (TOE mode, default TCP-server), abbreviated:
-
-```
-I (…) wiztoe_spi: W5500 detected (VERSIONR=0x04)
-I (…) wiztoe_net: TOE up: 192.168.11.2 (W5500 hardware TCP/IP)
-I (…) wifi: Wi-Fi STA started, connecting to "your-ssid"
-I (…) loopback: [eth] waiting for link...
-I (…) loopback: [wifi] waiting for link...
-I (…) wifi: got IP 192.168.0.42
-I (…) loopback: [eth] loopback: TCP SERVER on port 5000
-I (…) loopback: [eth] TCP server listening on port 5000
-I (…) loopback: [wifi] loopback: TCP SERVER on port 5001
-I (…) loopback: [wifi] TCP server listening on port 5001
-...
-I (…) loopback: [eth] client connected
-I (…) loopback: [wifi] client connected
-```
-
-- `VERSIONR=0x04` confirms the ESP32-S3 is talking to a real W5500 over SPI.
-- The `[eth]` / `[wifi]` tags distinguish the two concurrent loopback tasks.
+Binaries land in `builds/<example>_toe<toe>/hello_world.bin`. Flash a specific one with
+`idf.py -B builds/tcp_server_toe1 -p PORT flash monitor`.
 
 ---
 
 ## Project layout
 
+Every source group keeps `.c` under `src/` and `.h` under `inc/`. Code shared by all examples
+(W5500 + Wi-Fi bring-up, backend selection, the socket vtables, the `--wrap` glue) is the
+top-level **`port/`** component; each example holds only its own app logic + config and depends on
+`port`. The port layer hardcodes no board config — each example owns its `net_config.h` and passes
+the values in (see *How it works*). Inside `port/`, the bring-up harness is in `port/backend/` and
+**all W5500 chip driver-port code** is in `port/ioLibrary_Driver/` (same idea as WIZnet-PICO-C's
+`port/`). The project is self-contained: the esp_eth W5500 driver is vendored in-tree (no
+`managed_components/`); the *generic* ioLibrary hardware-TCP/IP driver is in `components/ioLibrary_Driver`.
+
 ```
-main/
-├─ W5500_loopback.c     app_main orchestrator: inits both stacks, starts both echo tasks
-├─ loopback.c / .h      backend-neutral echo engine + loopback_start() task launcher; holds LOOPBACK_MODE
-├─ net_config.h         wiring, static IP, Wi-Fi creds, ports  ← edit this
-├─ net_backend.h        Ethernet bring-up API (wiznet_net_init / wiznet_net_is_up)
-├─ net_backend_eth.c    WIZNET_TOE=0 bring-up (esp_eth W5500 MAC + software LwIP)
-├─ wifi_backend.c / .h  Wi-Fi STA bring-up + Wi-Fi socket vtable
-├─ wifi_loopback.c      Wi-Fi socket vtable definition (the only #if WIZNET_TOE in the app)
-├─ idf_component.yml    pulls espressif/w5500 (used by WIZNET_TOE=0)
-└─ wiztoe/              WIZNET_TOE=1 only:
-   ├─ wiznet_toe.c/.h   hardware-socket layer (ported from WIZnet-PICO-LWIP-TOE-C)
-   ├─ wizchip_spi_esp.* ESP32 SPI ↔ ioLibrary callbacks
-   ├─ net_backend_toe.c TOE bring-up (shadow esp_netif + static IP + chip config)
-   └─ wiztoe_wrap.c     __wrap_lwip_* glue (routes BSD sockets to the W5500)
+port/                          shared component: network bring-up for all examples (no board config)
+├─ CMakeLists.txt              backend (WIZNET_TOE) source selection + --wrap link glue
+├─ backend/                    backend-neutral bring-up harness + shared socket vtables
+│  ├─ inc/                     public API (visible to examples)
+│  │  ├─ net_backend.h         Ethernet bring-up API — wiznet_net_init(cfg) + wiznet_cfg_t
+│  │  ├─ wifi_backend.h        Wi-Fi STA bring-up API — wifi_net_init(ssid, pass)
+│  │  └─ net_sock_ops.h        net_sock_ops_t + net_eth_ops / net_wifi_ops (dual-interface vtables)
+│  └─ src/
+│     ├─ wifi_backend.c        Wi-Fi STA bring-up (both backends)
+│     ├─ net_sock_ops.c        net_eth_ops (plain lwip_* → W5500 via --wrap in TOE=1)
+│     ├─ net_wifi_ops.c        net_wifi_ops (__real_lwip_* wrap-bypass; the only #if WIZNET_TOE)
+│     └─ net_backend_eth.c     WIZNET_TOE=0 bring-up (esp_eth W5500 MAC + software LwIP)
+└─ ioLibrary_Driver/           all W5500 chip driver-port code (private headers)
+   ├─ LICENSE.esp_eth_w5500    Apache-2.0 for the vendored esp_eth driver
+   ├─ inc/  esp_eth_mac_w5500.h · esp_eth_phy_w5500.h · w5500.h   (TOE=0, vendored esp_eth driver)
+   │        wizchip_spi_esp.h · wiznet_toe.h · toe_port.h         (TOE=1, ioLibrary glue)
+   └─ src/
+      ├─ esp_eth_mac_w5500.c   TOE=0: vendored W5500 esp_eth MAC (was espressif/w5500)
+      ├─ esp_eth_phy_w5500.c   TOE=0: vendored W5500 esp_eth PHY
+      ├─ wizchip_spi_esp.c     TOE=1: ESP32 SPI/GPIO ↔ ioLibrary callbacks (reg_wizchip_*_cbfunc)
+      ├─ wiznet_toe.c          TOE=1: hardware-socket layer (ported from WIZnet-PICO-LWIP-TOE-C)
+      ├─ net_backend_toe.c     TOE=1: bring-up (shadow esp_netif + static IP + chip config)
+      └─ wiztoe_wrap.c         TOE=1: __wrap_lwip_* glue (routes BSD sockets to the W5500)
+
+examples/                      each subfolder is a selectable example component (-DEXAMPLE=<name>)
+├─ loopback/                   TCP/UDP echo (the default -DEXAMPLE)   → examples/loopback/README.md
+└─ tcp_server/                 TCP server (greets + echoes)           → examples/tcp_server/README.md
+
 components/
-└─ ioLibrary_Driver/    vendored WIZnet driver (W5500 hardware TCP/IP); built only in TOE mode
+└─ ioLibrary_Driver/           generic (vendored) WIZnet driver (W5500 hardware TCP/IP); TOE only
 ```
 
 See [`CLAUDE.md`](CLAUDE.md) for the full architecture notes and build gotchas.
@@ -272,23 +248,28 @@ See [`CLAUDE.md`](CLAUDE.md) for the full architecture notes and build gotchas.
 
 ## How it works
 
-The echo logic is a single backend-neutral engine ([`loopback.c`](main/loopback.c)) driven by
-an injected socket vtable (`loopback_ops_t`). Each interface supplies its own vtable, and both
-are started identically:
+Each example's engine is backend-neutral and drives its BSD socket calls through an injected
+vtable (`net_sock_ops_t`). `port` provides two ready vtables — `net_eth_ops` and `net_wifi_ops` —
+so the same engine runs on both interfaces, started identically (example app code has **no**
+`#if WIZNET_TOE`):
 
 ```c
-loopback_start("eth",  &loopback_lwip_ops,  LOOPBACK_PORT,      ..., wiznet_net_is_up);
-loopback_start("wifi", &wifi_loopback_ops,  WIFI_LOOPBACK_PORT, ..., wifi_net_is_up);
+/* every example starts its engine on both interfaces this way */
+<engine>_start("eth",  &net_eth_ops,  ETH_PORT,  ..., wiznet_net_is_up);
+<engine>_start("wifi", &net_wifi_ops, WIFI_PORT, ..., wifi_net_is_up);
 ```
 
-- **Ethernet** uses the standard lwIP BSD entry points (`lwip_socket`, …). In `WIZNET_TOE=1`
+- **`net_eth_ops`** uses the standard lwIP BSD entry points (`lwip_socket`, …). In `WIZNET_TOE=1`
   these are redirected to the W5500 hardware sockets **at link time** via `-Wl,--wrap=lwip_*`
-  (glue in `wiztoe/wiztoe_wrap.c`), so the application code is unchanged. In `WIZNET_TOE=0`
-  they are the software LwIP over `esp_eth`.
-- **Wi-Fi** always runs on the software LwIP stack. Because `WIZNET_TOE=1` hijacks the plain
-  `lwip_*` symbols to the chip, the Wi-Fi vtable binds to the linker's **`__real_lwip_*`**
-  (the un-wrapped originals) to bypass the W5500. In `WIZNET_TOE=0` there is no `--wrap`, so
-  Wi-Fi and Ethernet share the one LwIP stack (hence the different ports).
+  (glue in `port/ioLibrary_Driver/src/wiztoe_wrap.c`), so the application code is unchanged. In
+  `WIZNET_TOE=0` they are the software LwIP over `esp_eth`.
+- **`net_wifi_ops`** always runs on the software LwIP stack. Because `WIZNET_TOE=1` hijacks the
+  plain `lwip_*` symbols to the chip, it binds to the linker's **`__real_lwip_*`** (the un-wrapped
+  originals) to bypass the W5500. In `WIZNET_TOE=0` there is no `--wrap`, so Wi-Fi and Ethernet
+  share the one LwIP stack (hence the different ports).
+
+Both vtables live in `port` (which owns the `--wrap`), in `net_sock_ops.c` / `net_wifi_ops.c` — so
+the wrap awareness is in exactly one place and every example stays `#if`-free.
 
 ---
 
@@ -298,9 +279,9 @@ loopback_start("wifi", &wifi_loopback_ops,  WIFI_LOOPBACK_PORT, ..., wifi_net_is
 |---|---|
 | `W5500 VERSIONR mismatch: 0x.. (expected 0x04)` | SPI wiring or power. Check MOSI/MISO/SCLK/CS/RST, common ground, 3.3 V, and lower `ETH_SPI_CLOCK_MHZ` if the wiring is long. |
 | Ethernet not reachable | PC not on the `192.168.11.x` subnet, or wrong static IP/gateway in `net_config.h`. Verify with `ping 192.168.11.2`. |
-| Wi-Fi never gets an IP | Wrong `WIFI_SSID`/`WIFI_PASS`, or a non-WPA2 AP. The example assumes WPA2-PSK. |
-| `bind` fails on Wi-Fi in `WIZNET_TOE=0` | Port clash on the shared LwIP stack — keep `WIFI_LOOPBACK_PORT` ≠ `LOOPBACK_PORT`. |
-| `LOOPBACK_MODE redefined` error | You passed `-DCMAKE_C_FLAGS=...` without `fullclean`. Run `idf.py fullclean` first. |
+| Wi-Fi never gets an IP | Wrong `WIFI_SSID`/`WIFI_PASS`, or a non-WPA2 AP. The examples assume WPA2-PSK. |
+| `bind` fails on Wi-Fi in `WIZNET_TOE=0` | Port clash on the shared LwIP stack — keep the Wi-Fi and Ethernet listen ports different. |
+| `idf.py` not recognized | ESP-IDF environment not active. Use the *ESP-IDF Terminal* or source `export.ps1`/`export.sh`. |
 | `ninja: error: loading 'build.ninja'` | Half-configured build dir. Run `idf.py reconfigure` (or `fullclean`). |
 
 ---
@@ -308,12 +289,14 @@ loopback_start("wifi", &wifi_loopback_ops,  WIFI_LOOPBACK_PORT, ..., wifi_net_is
 ## License
 
 Application sources are provided under permissive licenses (see the SPDX headers in each
-file: `CC0-1.0` / `BSD-3-Clause`). The vendored WIZnet `ioLibrary_Driver` and the
-`espressif/w5500` managed component retain their own licenses.
+file: `CC0-1.0` / `BSD-3-Clause`). The vendored WIZnet `ioLibrary_Driver` and the vendored
+esp_eth W5500 driver (`port/ioLibrary_Driver/`, Apache-2.0 — see `LICENSE.esp_eth_w5500`)
+retain their own licenses.
 
 ## References
 
 - WIZnet **ioLibrary_Driver** — W5500 hardware TCP/IP driver
 - **WIZnet-PICO-LWIP-TOE-C** — the reference project this "one source, two backends" TOE
   port is based on (see `WIZnet-PICO-LWIP-TOE-C_research.md` and `plan.md`)
-- **espressif/w5500** ESP-IDF component (Component Registry) — used by the `esp_eth` backend
+- **espressif/w5500** ESP-IDF component (Component Registry) — the esp_eth backend's W5500
+  MAC/PHY driver, vendored in-tree here under `port/ioLibrary_Driver/`

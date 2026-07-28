@@ -21,7 +21,6 @@
 
 #include "wizchip_conf.h"          /* reg_wizchip_*_cbfunc, wizchip_init, getVERSIONR */
 
-#include "net_config.h"
 #include "wizchip_spi_esp.h"
 #include "toe_port.h"
 
@@ -29,6 +28,7 @@ static const char *TAG = "wiztoe_spi";
 
 static spi_device_handle_t   s_spi;
 static SemaphoreHandle_t     s_wiz_mtx;   /* guards chip access (ioLibrary cris) */
+static int                   s_pin_cs;    /* latched from cfg for the CS callbacks */
 
 /* ---- neutral port helpers (toe_port.h) ---- */
 void toe_yield_1ms(void)   { vTaskDelay(pdMS_TO_TICKS(1)); }
@@ -39,8 +39,8 @@ static void cris_enter(void) { xSemaphoreTakeRecursive(s_wiz_mtx, portMAX_DELAY)
 static void cris_exit(void)  { xSemaphoreGiveRecursive(s_wiz_mtx); }
 
 /* ---- chip select (manual GPIO, active-low) ---- */
-static void cs_select(void)   { gpio_set_level(PIN_ETH_CS, 0); }
-static void cs_deselect(void) { gpio_set_level(PIN_ETH_CS, 1); }
+static void cs_select(void)   { gpio_set_level(s_pin_cs, 0); }
+static void cs_deselect(void) { gpio_set_level(s_pin_cs, 1); }
 
 /* ---- single-byte SPI ---- */
 static uint8_t spi_readbyte(void)
@@ -77,40 +77,41 @@ static void spi_writeburst(uint8_t *buf, uint16_t len)
     spi_device_polling_transmit(s_spi, &t);
 }
 
-void wizchip_spi_esp_init(void)
+void wizchip_spi_esp_init(const wizchip_spi_cfg_t *cfg)
 {
     memset(s_ff_fill, 0xFF, sizeof(s_ff_fill));
+    s_pin_cs = cfg->pin_cs;                             /* latch for CS callbacks */
 
     /* RST pulse + CS idle-high (GPIO) */
     gpio_config_t io = {
-        .pin_bit_mask = (1ULL << PIN_ETH_RST) | (1ULL << PIN_ETH_CS),
+        .pin_bit_mask = (1ULL << cfg->pin_rst) | (1ULL << cfg->pin_cs),
         .mode = GPIO_MODE_OUTPUT,
     };
     gpio_config(&io);
-    gpio_set_level(PIN_ETH_CS, 1);
-    gpio_set_level(PIN_ETH_RST, 0);
+    gpio_set_level(cfg->pin_cs, 1);
+    gpio_set_level(cfg->pin_rst, 0);
     vTaskDelay(pdMS_TO_TICKS(5));
-    gpio_set_level(PIN_ETH_RST, 1);
+    gpio_set_level(cfg->pin_rst, 1);
     vTaskDelay(pdMS_TO_TICKS(50));
 
     /* SPI bus + device (manual CS -> spics_io_num = -1) */
     spi_bus_config_t bus = {
-        .mosi_io_num = PIN_ETH_MOSI,
-        .miso_io_num = PIN_ETH_MISO,
-        .sclk_io_num = PIN_ETH_SCLK,
+        .mosi_io_num = cfg->pin_mosi,
+        .miso_io_num = cfg->pin_miso,
+        .sclk_io_num = cfg->pin_sclk,
         .quadwp_io_num = -1,
         .quadhd_io_num = -1,
         .max_transfer_sz = 4096,
     };
-    ESP_ERROR_CHECK(spi_bus_initialize(ETH_SPI_HOST, &bus, SPI_DMA_CH_AUTO));
+    ESP_ERROR_CHECK(spi_bus_initialize(cfg->spi_host, &bus, SPI_DMA_CH_AUTO));
 
     spi_device_interface_config_t dev = {
         .mode = 0,                                      /* W5500 = SPI mode 0 */
-        .clock_speed_hz = ETH_SPI_CLOCK_MHZ * 1000 * 1000,
+        .clock_speed_hz = cfg->spi_clock_mhz * 1000 * 1000,
         .spics_io_num = -1,
         .queue_size = 4,
     };
-    ESP_ERROR_CHECK(spi_bus_add_device(ETH_SPI_HOST, &dev, &s_spi));
+    ESP_ERROR_CHECK(spi_bus_add_device(cfg->spi_host, &dev, &s_spi));
 
     s_wiz_mtx = xSemaphoreCreateRecursiveMutex();
 

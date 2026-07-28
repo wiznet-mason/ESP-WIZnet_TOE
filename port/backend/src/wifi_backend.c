@@ -18,7 +18,6 @@
 #include "esp_wifi.h"
 #include "nvs_flash.h"
 
-#include "net_config.h"
 #include "wifi_backend.h"
 
 static const char *TAG = "wifi";
@@ -42,7 +41,7 @@ static void on_wifi_event(void *arg, esp_event_base_t base, int32_t id, void *da
     }
 }
 
-void wifi_net_init(void)
+void wifi_net_init(const char *ssid, const char *pass)
 {
     /* NVS is required by the Wi-Fi driver (calibration / PHY data). */
     esp_err_t r = nvs_flash_init();
@@ -69,15 +68,15 @@ void wifi_net_init(void)
                                                         on_wifi_event, NULL, NULL));
 
     wifi_config_t wc = { 0 };
-    strncpy((char *)wc.sta.ssid, WIFI_SSID, sizeof(wc.sta.ssid) - 1);
-    strncpy((char *)wc.sta.password, WIFI_PASS, sizeof(wc.sta.password) - 1);
+    strncpy((char *)wc.sta.ssid, ssid, sizeof(wc.sta.ssid) - 1);
+    strncpy((char *)wc.sta.password, pass, sizeof(wc.sta.password) - 1);
     wc.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
 
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wc));
     ESP_ERROR_CHECK(esp_wifi_start());
 
-    ESP_LOGI(TAG, "Wi-Fi STA started, connecting to \"%s\"", WIFI_SSID);
+    ESP_LOGI(TAG, "Wi-Fi STA started, connecting to \"%s\"", ssid);
 }
 
 bool wifi_net_is_up(void)

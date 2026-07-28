@@ -3,7 +3,7 @@
  *
  * Backend-neutral loopback (echo) engine. Same logic as the original inline
  * routines in W5500_loopback.c, but the BSD socket calls go through a vtable
- * (loopback_ops_t) so the Ethernet (W5500) and Wi-Fi paths reuse one copy.
+ * (net_sock_ops_t) so the Ethernet (W5500) and Wi-Fi paths reuse one copy.
  */
 #include <stdbool.h>
 #include <stdlib.h>
@@ -29,21 +29,8 @@
 
 static const char *TAG = "loopback";
 
-/* Standard lwIP BSD socket vtable (Ethernet). In WIZNET_TOE=1 these lwip_*
- * symbols are --wrap-redirected to the W5500; in WIZNET_TOE=0 they are software
- * LwIP over esp_eth. Exposed so app_main references it the same way as the
- * Wi-Fi vtable (both are module-provided const vtables taken by address). */
-const loopback_ops_t loopback_lwip_ops = {
-    .socket = lwip_socket,   .bind = lwip_bind,
-    .listen = lwip_listen,   .accept = lwip_accept,
-    .connect = lwip_connect, .recv = lwip_recv,
-    .send = lwip_send,       .recvfrom = lwip_recvfrom,
-    .sendto = lwip_sendto,   .setsockopt = lwip_setsockopt,
-    .close = lwip_close,
-};
-
 #if (LOOPBACK_MODE == LOOPBACK_TCP_SERVER)
-static void loopback_tcp_server(const char *tag, const loopback_ops_t *ops,
+static void loopback_tcp_server(const char *tag, const net_sock_ops_t *ops,
                                 uint16_t port, uint8_t *buf, int buf_size)
 {
     int lsock = ops->socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -97,7 +84,7 @@ static void loopback_tcp_server(const char *tag, const loopback_ops_t *ops,
 #endif /* LOOPBACK_TCP_SERVER */
 
 #if (LOOPBACK_MODE == LOOPBACK_TCP_CLIENT)
-static void loopback_tcp_client(const char *tag, const loopback_ops_t *ops,
+static void loopback_tcp_client(const char *tag, const net_sock_ops_t *ops,
                                 const char *target_ip, uint16_t target_port,
                                 uint8_t *buf, int buf_size)
 {
@@ -141,7 +128,7 @@ static void loopback_tcp_client(const char *tag, const loopback_ops_t *ops,
 #endif /* LOOPBACK_TCP_CLIENT */
 
 #if (LOOPBACK_MODE == LOOPBACK_UDP)
-static void loopback_udp(const char *tag, const loopback_ops_t *ops,
+static void loopback_udp(const char *tag, const net_sock_ops_t *ops,
                          uint16_t port, uint8_t *buf, int buf_size)
 {
     int s = ops->socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
@@ -172,7 +159,7 @@ static void loopback_udp(const char *tag, const loopback_ops_t *ops,
 }
 #endif /* LOOPBACK_UDP */
 
-static void loopback_run(const char *tag, const loopback_ops_t *ops,
+static void loopback_run(const char *tag, const net_sock_ops_t *ops,
                          uint16_t listen_port, const char *target_ip, uint16_t target_port,
                          uint8_t *buf, int buf_size)
 {
@@ -198,7 +185,7 @@ static void loopback_run(const char *tag, const loopback_ops_t *ops,
  * ------------------------------------------------------------------------ */
 typedef struct {
     const char           *name;
-    const loopback_ops_t *ops;
+    const net_sock_ops_t *ops;
     uint16_t              listen_port;
     uint16_t              target_port;
     const char           *target_ip;
@@ -230,7 +217,7 @@ static void loopback_task(void *arg)
     vTaskDelete(NULL);
 }
 
-void loopback_start(const char *name, const loopback_ops_t *ops,
+void loopback_start(const char *name, const net_sock_ops_t *ops,
                     uint16_t listen_port, const char *target_ip, uint16_t target_port,
                     bool (*is_up)(void))
 {

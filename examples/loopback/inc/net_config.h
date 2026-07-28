@@ -1,13 +1,15 @@
 /*
  * SPDX-License-Identifier: CC0-1.0
  *
- * Shared hardware + network configuration for the W5500 loopback demo.
- * Used by BOTH backends (net_backend_eth.c for WIZNET_TOE=0, and the wiztoe/
- * backend for WIZNET_TOE=1). Loopback-application config (mode, port, echo
- * buffer, TCP-client target) stays in W5500_loopback.c.
+ * Board + network configuration for this example. app_main (W5500_loopback.c)
+ * packs these into a wiznet_cfg_t and passes it to the port layer's
+ * wiznet_net_init(); the port component hardcodes none of it. Loopback-app
+ * settings (ports, echo buffer, TCP-client target) are below.
  */
 #ifndef NET_CONFIG_H
 #define NET_CONFIG_H
+
+#include "driver/spi_master.h"   /* SPI2_HOST (spi_host_device_t) for ETH_SPI_HOST */
 
 /* ---- static network config ---- */
 #define ETH_MAC_ADDR          {0x02, 0x00, 0x00, 0x12, 0x34, 0x56}  /* locally-administered */

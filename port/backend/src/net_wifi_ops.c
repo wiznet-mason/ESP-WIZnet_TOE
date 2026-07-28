@@ -1,30 +1,31 @@
 /*
  * SPDX-License-Identifier: CC0-1.0
  *
- * Wi-Fi socket vtable for the backend-neutral echo engine (loopback.c). The
- * Wi-Fi and Ethernet loopbacks are started identically via loopback_start();
- * only the vtable differs, and this file owns the Wi-Fi one.
+ * Wi-Fi socket vtable — the ONE place aware of the W5500 --wrap.
  *
- * This is the ONE place aware of the W5500 --wrap. In WIZNET_TOE=1 the plain
- * lwip_* symbols are redirected to the W5500 hardware sockets, so Wi-Fi must
- * bind to the linker's __real_lwip_* (the un-wrapped originals) to reach the
- * REAL software LwIP stack that the Wi-Fi netif is attached to. The W5500 TOE
- * sockets and these real LwIP fds never cross: each call site fixes which
- * namespace an fd belongs to.
+ * In WIZNET_TOE=1 the plain lwip_* symbols are redirected to the W5500 hardware
+ * sockets (see ioLibrary_Driver/wiztoe_wrap.c), so Wi-Fi must bind to the
+ * linker's __real_lwip_* (the un-wrapped originals) to reach the REAL software
+ * LwIP stack that the Wi-Fi netif is attached to. The W5500 TOE sockets and
+ * these real-LwIP fds never cross: each call site fixes which namespace an fd
+ * belongs to.
  *
  * In WIZNET_TOE=0 there is no --wrap; Wi-Fi and Ethernet share one LwIP stack,
- * so the vtable is just the plain lwip_* (identical to the Ethernet ops). The
- * two servers use different ports (see net_config.h) to avoid a bind clash on
- * that shared stack.
+ * so the vtable is just the plain lwip_* (identical to net_eth_ops). Servers on
+ * the two interfaces use different ports (example config) to avoid a bind clash
+ * on that shared stack.
+ *
+ * This lives in `port` because the --wrap is declared here; keeping the wrap
+ * bypass next to it lets every example stay free of #if WIZNET_TOE. The
+ * WIZNET_TOE macro is provided by port's CMakeLists.
  */
 #include "lwip/sockets.h"
 
-#include "wifi_backend.h"
-#include "loopback.h"
+#include "net_sock_ops.h"
 
 #if defined(WIZNET_TOE) && (WIZNET_TOE)
 /* Un-wrapped LwIP entry points provided by the linker because these symbols are
- * listed in --wrap (see main/CMakeLists.txt). Calling __real_* bypasses the
+ * listed in --wrap (see port/CMakeLists.txt). Calling __real_* bypasses the
  * W5500 redirect and hits the software LwIP stack. */
 extern int     __real_lwip_socket(int domain, int type, int protocol);
 extern int     __real_lwip_bind(int s, const struct sockaddr *name, socklen_t namelen);
@@ -40,7 +41,7 @@ extern ssize_t __real_lwip_sendto(int s, const void *data, size_t size, int flag
 extern int     __real_lwip_setsockopt(int s, int level, int optname, const void *optval, socklen_t optlen);
 extern int     __real_lwip_close(int s);
 
-const loopback_ops_t wifi_loopback_ops = {
+const net_sock_ops_t net_wifi_ops = {
     .socket = __real_lwip_socket,   .bind = __real_lwip_bind,
     .listen = __real_lwip_listen,   .accept = __real_lwip_accept,
     .connect = __real_lwip_connect, .recv = __real_lwip_recv,
@@ -49,7 +50,7 @@ const loopback_ops_t wifi_loopback_ops = {
     .close = __real_lwip_close,
 };
 #else /* WIZNET_TOE=0: no --wrap; plain lwIP (shared stack with Ethernet). */
-const loopback_ops_t wifi_loopback_ops = {
+const net_sock_ops_t net_wifi_ops = {
     .socket = lwip_socket,   .bind = lwip_bind,
     .listen = lwip_listen,   .accept = lwip_accept,
     .connect = lwip_connect, .recv = lwip_recv,

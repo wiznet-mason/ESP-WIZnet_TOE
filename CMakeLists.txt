@@ -15,9 +15,25 @@ message(STATUS "WIZNET_TOE = ${WIZNET_TOE}")
 # cache variables are NOT available). Component CMakeLists read $ENV{WIZNET_TOE}.
 set(ENV{WIZNET_TOE} "${WIZNET_TOE}")
 
+# Component layout:
+#   port/            shared "port" component (W5500 + Wi-Fi bring-up), used by all examples
+#   examples/<name>/ one component per example; the chosen one provides app_main
+# port/ has its own CMakeLists.txt, so listing it in EXTRA_COMPONENT_DIRS registers
+# the directory itself as a component; examples/ has none, so its subdirectories are
+# scanned as components instead.
+set(EXTRA_COMPONENT_DIRS "examples" "port")
+if(NOT DEFINED EXAMPLE)
+    set(EXAMPLE loopback CACHE STRING "Which examples/<name> to build")
+endif()
+message(STATUS "EXAMPLE = ${EXAMPLE}")
+
+# Setting COMPONENTS to the selected example (+ its transitive requirements)
+# trims the build exactly like MINIMAL_BUILD did -- and is what lets the app
+# component be named after the example instead of the special `main`. With
+# COMPONENTS defined, ESP-IDF disregards MINIMAL_BUILD, so we no longer set it.
+# (For TOE this still pulls in only ioLibrary_Driver; for esp_eth only w5500 --
+#  the two W5500 drivers never coexist, via the example's PRIV_REQUIRES.)
+set(COMPONENTS ${EXAMPLE})
+
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
-# "Trim" the build. Include the minimal set of components, main, and anything it depends on.
-# (With MINIMAL_BUILD, only the backend actually required by `main` is compiled: ioLibrary_Driver
-#  for TOE=1, espressif/w5500(esp_eth) for TOE=0 — so the two W5500 drivers never coexist.)
-idf_build_set_property(MINIMAL_BUILD ON)
 project(hello_world)
